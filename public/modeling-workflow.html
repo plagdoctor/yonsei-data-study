@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>마케팅 캠페인 응답 판별 모델링 — 전체 워크플로우</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+         max-width: 1180px; margin: 30px auto; padding: 24px; color: #1f2937;
+         line-height: 1.65; background: #fafbfc; }
+  h1 { color: #0f172a; border-bottom: 4px solid #3b82f6; padding-bottom: 12px; font-size: 28px; }
+  h2 { color: #1e3a8a; margin-top: 40px; font-size: 22px;
+       background: linear-gradient(90deg, #dbeafe, transparent); padding: 10px 14px; border-radius: 6px; }
+  h3 { color: #1e40af; margin-top: 24px; font-size: 17px; }
+  h4 { color: #2563eb; margin-top: 16px; font-size: 15px; }
+
+  .stage {
+    background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 20px 24px; margin: 18px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border-left: 6px solid #3b82f6;
+  }
+  .stage.done   { border-left-color: #10b981; background: #f0fdf4; }
+  .stage.now    { border-left-color: #f59e0b; background: #fffbeb; }
+  .stage-title { display:flex; align-items:center; gap:10px; margin-top:0; }
+  .badge {
+    display: inline-block; font-size: 12px; padding: 3px 10px;
+    border-radius: 999px; font-weight: 600;
+  }
+  .badge-done { background: #10b981; color: white; }
+  .badge-now  { background: #f59e0b; color: white; }
+  .badge-todo { background: #94a3b8; color: white; }
+  .badge-week { background: #1e40af; color: white; margin-left: auto; }
+
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; background:white; }
+  th { background: #1e40af; color: white; padding: 10px; text-align: left; }
+  td { padding: 9px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  ul { padding-left: 22px; }
+  ul li { margin: 4px 0; }
+  code { background: #f1f5f9; color: #0f172a; padding: 2px 7px; border-radius: 4px;
+         font-size: 13px; font-family: 'Menlo', monospace; }
+
+  .toc { background: white; border: 1px solid #e5e7eb; padding: 16px 24px;
+         border-radius: 10px; margin: 18px 0; }
+  .toc ol { columns: 2; column-gap: 30px; }
+  .toc a { color: #2563eb; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  .summary-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+                 padding: 16px 20px; margin: 16px 0; }
+
+  .timeline {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 12px 0;
+  }
+  .tl-cell { padding: 10px 6px; text-align: center; font-size: 12px;
+             border-radius: 6px; background: #e2e8f0; color: #475569; }
+  .tl-cell.active { background: #3b82f6; color: white; font-weight: 600; }
+  .tl-cell.done { background: #10b981; color: white; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>📋 마케팅 캠페인 응답(Response) 판별 모델링 — 전체 워크플로우</h1>
+
+<div class="summary-box">
+<b>🎯 분석 목표</b><br>
+고객의 인구통계·구매·캠페인 이력 정보를 활용해 <b>마지막 캠페인의 수락 여부(Response = 1)</b>를
+사전에 예측하는 <b>이진 분류 모델</b>을 구축한다.<br>
+<b>비즈니스 임팩트:</b> 수락 가능성이 높은 고객만 타겟팅하여 캠페인 비용 절감 + ROI 향상.
+</div>
+
+<h2>📌 전체 단계 한눈에 보기 (8단계)</h2>
+<div class="timeline">
+  <div class="tl-cell done">1. EDA<br>✅ 완료</div>
+  <div class="tl-cell done">2. 전처리<br>✅ 완료</div>
+  <div class="tl-cell">3. 변수 선택</div>
+  <div class="tl-cell">4. 불균형 처리</div>
+  <div class="tl-cell">5. 모델 학습</div>
+  <div class="tl-cell">6. 튜닝</div>
+  <div class="tl-cell">7. 평가·해석</div>
+  <div class="tl-cell">8. 리포팅</div>
+</div>
+
+<div class="toc">
+<b>목차</b>
+<ol>
+  <li><a href="#s1">EDA — 탐색적 데이터 분석</a></li>
+  <li><a href="#s2">데이터 전처리</a></li>
+  <li><a href="#s3">변수 선택 / 차원 축소</a></li>
+  <li><a href="#s4">클래스 불균형 처리</a></li>
+  <li><a href="#s5">모델 학습 (Baseline → 후보군)</a></li>
+  <li><a href="#s6">하이퍼파라미터 튜닝</a></li>
+  <li><a href="#s7">최종 평가 & 모델 해석</a></li>
+  <li><a href="#s8">결과 리포팅 & 배포 준비</a></li>
+</ol>
+</div>
+
+<!-- ============== STAGE 1 ============== -->
+<div class="stage done" id="s1">
+<h3 class="stage-title">
+  <span class="badge badge-done">완료</span>
+  STAGE 1. EDA — 탐색적 데이터 분석
+  <span class="badge badge-week">Week 1</span>
+</h3>
+<table>
+<tr><th width="22%">하위 업무</th><th>세부 내용</th><th width="18%">산출물</th></tr>
+<tr><td>1-1. 데이터 적재</td><td>탭 구분자 인식, 컬럼·dtype 확인</td><td>스키마 정의</td></tr>
+<tr><td>1-2. 기본 통계</td><td>shape, describe, 결측치, 중복</td><td>요약 통계표</td></tr>
+<tr><td>1-3. 단변량 분석</td><td>수치형 분포(히스토그램), 범주형 분포(bar)</td><td>분포 차트</td></tr>
+<tr><td>1-4. 타깃 분석</td><td>Response 분포, 수락률(14.9% — <b>불균형</b>)</td><td>타깃 KPI</td></tr>
+<tr><td>1-5. 다변량 분석</td><td>Response별 평균 비교, 상관관계 Top10, 그룹별 수락률</td><td>인사이트 정리</td></tr>
+<tr><td>1-6. 이상치/품질 점검</td><td>Year_Birth&lt;1940 (3건), Income&gt;200K (1건), Marital_Status 비표준값</td><td>품질 이슈 리스트</td></tr>
+</table>
+<p>📎 산출물: <code>EDA_리포트.html</code>, <code>eda_dashboard.png</code>, <code>eda_corr_heatmap.png</code></p>
+</div>
+
+<!-- ============== STAGE 2 ============== -->
+<div class="stage done" id="s2">
+<h3 class="stage-title">
+  <span class="badge badge-done">완료</span>
+  STAGE 2. 데이터 전처리
+  <span class="badge badge-week">Week 2</span>
+</h3>
+<table>
+<tr><th width="22%">하위 업무</th><th>세부 내용</th><th width="18%">결과</th></tr>
+<tr><td>2-1. 불필요 컬럼 제거</td><td><code>ID</code>, 상수 컬럼 <code>Z_CostContact</code>, <code>Z_Revenue</code> 제거</td><td>29 → 26 컬럼</td></tr>
+<tr><td>2-2. 이상치 제거</td><td>Year_Birth&lt;1940, Income&gt;200K → 4건 제거</td><td>2240 → 2236행</td></tr>
+<tr><td>2-3. 결측치 처리</td><td>Income 24건 → <b>학력별 그룹 중위수</b>로 대체</td><td>결측치 0건</td></tr>
+<tr><td>2-4. 피처 엔지니어링</td><td>Customer_Days, Age, TotalChildren, HasChildren,<br>
+TotalSpending, TotalPurchases, TotalAcceptedCmp, AvgPurchaseValue</td><td>+8개 파생변수</td></tr>
+<tr><td>2-5. 범주형 정리</td><td>Marital_Status → Partner/Single 이분화 (Is_Partner),<br>비표준값(Absurd, YOLO 등) 흡수</td><td>표준화</td></tr>
+<tr><td>2-6. 인코딩</td><td>Education은 학력 순서 보존 → <b>서열형(0~4)</b> 인코딩</td><td>전체 수치형</td></tr>
+<tr><td>2-7. Train/Test Split</td><td>80:20, <b>stratified</b> (Response 비율 유지)</td><td>1788 / 448</td></tr>
+<tr><td>2-8. 스케일링</td><td>StandardScaler (선형/거리기반 모델용 — 별도 저장)</td><td>scaled 버전</td></tr>
+</table>
+<p>📎 산출물: <code>preprocess.py</code>, <code>preprocessed/X_train.csv</code>, <code>X_test.csv</code>, <code>y_train.csv</code>, <code>y_test.csv</code>, <code>X_train_scaled.csv</code>, <code>X_test_scaled.csv</code></p>
+</div>
+
+<!-- ============== STAGE 3 ============== -->
+<div class="stage" id="s3">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 3. 변수 선택 / 차원 축소
+  <span class="badge badge-week">Week 3</span>
+</h3>
+<table>
+<tr><th width="22%">하위 업무</th><th>세부 내용</th><th width="22%">방법/툴</th></tr>
+<tr><td>3-1. 다중공선성 점검</td><td>VIF(Variance Inflation Factor) 계산, 상관관계 0.9↑ 변수 그룹화</td><td>statsmodels VIF, corr matrix</td></tr>
+<tr><td>3-2. 통계적 변수 선택</td><td>카이제곱(범주형), ANOVA F-test(수치형) 기반 SelectKBest</td><td>sklearn SelectKBest</td></tr>
+<tr><td>3-3. 모델 기반 선택</td><td>RandomForest / XGBoost feature_importance, RFE</td><td>RFECV, importance plot</td></tr>
+<tr><td>3-4. 임베디드 방법</td><td>L1 (Lasso) 정규화로 자동 변수 선택</td><td>LogisticRegression(L1)</td></tr>
+<tr><td>3-5. (선택) 차원 축소</td><td>PCA — 시각화 또는 노이즈 제거 용도</td><td>sklearn PCA</td></tr>
+<tr><td>3-6. 최종 변수셋 확정</td><td>3-1~3-4 결과 교차 비교 → 안정적으로 중요한 변수만 채택</td><td>변수 리스트</td></tr>
+</table>
+</div>
+
+<!-- ============== STAGE 4 ============== -->
+<div class="stage" id="s4">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 4. 클래스 불균형 처리
+  <span class="badge badge-week">Week 3</span>
+</h3>
+<p>현재 수락률 <b>14.9%</b> → 단순 정확도(accuracy)로는 모델 성능을 가늠할 수 없음.</p>
+<table>
+<tr><th width="22%">전략</th><th>세부 내용</th><th width="22%">비고</th></tr>
+<tr><td>4-1. 평가지표 변경</td><td>Accuracy 대신 <b>F1, Recall, ROC-AUC, PR-AUC</b> 중심</td><td>가장 우선</td></tr>
+<tr><td>4-2. 가중치 조정</td><td><code>class_weight='balanced'</code> 또는 <code>scale_pos_weight</code></td><td>가장 간단·강력</td></tr>
+<tr><td>4-3. 오버샘플링</td><td>SMOTE / SMOTENC / Borderline-SMOTE</td><td>imblearn</td></tr>
+<tr><td>4-4. 언더샘플링</td><td>RandomUnderSampler / TomekLinks</td><td>데이터 손실 주의</td></tr>
+<tr><td>4-5. 임계값(Threshold) 튜닝</td><td>기본 0.5 → PR 곡선 기반 최적 threshold 탐색</td><td>비즈니스 비용반영 가능</td></tr>
+</table>
+<p><b>⚠️ 주의:</b> 오버샘플링은 반드시 <b>train fold 내부에서만</b> 적용 (Pipeline 사용)</p>
+</div>
+
+<!-- ============== STAGE 5 ============== -->
+<div class="stage" id="s5">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 5. 모델 학습 — Baseline → 후보 모델군
+  <span class="badge badge-week">Week 4-5</span>
+</h3>
+<table>
+<tr><th width="22%">모델 후보</th><th>특징</th><th width="22%">라이브러리</th></tr>
+<tr><td>5-1. Logistic Regression</td><td><b>Baseline.</b> 해석 쉬움, 계수로 영향력 파악</td><td>sklearn</td></tr>
+<tr><td>5-2. Decision Tree</td><td>시각화·해석 용이, 과적합 위험</td><td>sklearn</td></tr>
+<tr><td>5-3. Random Forest</td><td>안정적 성능, feature importance 제공</td><td>sklearn</td></tr>
+<tr><td>5-4. Gradient Boosting</td><td>일반적으로 표 데이터에서 최고 성능</td><td>sklearn / XGBoost / LightGBM / CatBoost</td></tr>
+<tr><td>5-5. SVM</td><td>스케일링된 데이터에 적용, 커널 선택</td><td>sklearn</td></tr>
+<tr><td>5-6. KNN</td><td>거리기반, 단순 비교용</td><td>sklearn</td></tr>
+<tr><td>5-7. Stacking / Voting</td><td>여러 모델 앙상블</td><td>sklearn</td></tr>
+</table>
+
+<h4>5단계 표준 절차</h4>
+<ul>
+  <li>각 모델을 <b>5-Fold Stratified Cross-Validation</b>으로 학습</li>
+  <li>지표는 <b>ROC-AUC + F1(Response=1 기준)</b>를 메인으로 비교</li>
+  <li>학습 시간·예측 시간도 함께 기록 (운영 비용 고려)</li>
+  <li>상위 2~3개 모델을 STAGE 6 튜닝 대상으로 선정</li>
+</ul>
+</div>
+
+<!-- ============== STAGE 6 ============== -->
+<div class="stage" id="s6">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 6. 하이퍼파라미터 튜닝
+  <span class="badge badge-week">Week 6</span>
+</h3>
+<table>
+<tr><th width="22%">하위 업무</th><th>세부 내용</th></tr>
+<tr><td>6-1. 탐색 전략 선택</td><td>GridSearchCV(전수) / RandomizedSearchCV(빠름) / Optuna(베이지안, 권장)</td></tr>
+<tr><td>6-2. 검증 분할</td><td>5-Fold Stratified CV — 학습 데이터 내부에서만 수행</td></tr>
+<tr><td>6-3. 주요 튜닝 파라미터</td><td>
+  · <b>RandomForest</b>: n_estimators, max_depth, min_samples_split, max_features<br>
+  · <b>XGBoost/LightGBM</b>: n_estimators, learning_rate, max_depth, min_child_weight, subsample, colsample_bytree, reg_alpha/lambda<br>
+  · <b>LogReg</b>: C, penalty (L1/L2/elasticnet), class_weight</td></tr>
+<tr><td>6-4. 조기종료(early stopping)</td><td>Boosting 계열은 valid set으로 early_stopping_rounds 설정</td></tr>
+<tr><td>6-5. 임계값(threshold) 최적화</td><td>예측 확률 + Precision/Recall trade-off 곡선으로 비즈니스 목적 맞춤</td></tr>
+</table>
+</div>
+
+<!-- ============== STAGE 7 ============== -->
+<div class="stage" id="s7">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 7. 최종 평가 & 모델 해석
+  <span class="badge badge-week">Week 7</span>
+</h3>
+
+<h4>7-1. 성능 평가 (Test set, 한 번만)</h4>
+<table>
+<tr><th>지표</th><th>의미</th><th>이 프로젝트에서 중요도</th></tr>
+<tr><td>Accuracy</td><td>전체 정확도</td><td>참고용 (불균형이라 신뢰 낮음)</td></tr>
+<tr><td><b>Precision</b></td><td>예측한 수락자 중 실제 수락 비율</td><td>★★★ 캠페인 비용 절감 관점</td></tr>
+<tr><td><b>Recall</b></td><td>실제 수락자 중 잡아낸 비율</td><td>★★★ 매출 기회 손실 관점</td></tr>
+<tr><td><b>F1-score</b></td><td>Precision·Recall 조화평균</td><td>★★★ 메인 지표</td></tr>
+<tr><td><b>ROC-AUC</b></td><td>임계값 무관한 분류 능력</td><td>★★★ 모델 비교</td></tr>
+<tr><td>PR-AUC</td><td>불균형 데이터에서 더 신뢰</td><td>★★★ 보조 지표</td></tr>
+<tr><td>Confusion Matrix</td><td>TP/FP/FN/TN 분해</td><td>★★ 비즈니스 비용계산</td></tr>
+<tr><td>Lift Chart / Gain Chart</td><td>상위 N% 타겟팅 시 잡히는 수락자 비율</td><td>★★ 마케팅 의사결정</td></tr>
+</table>
+
+<h4>7-2. 모델 해석 (Explainability)</h4>
+<ul>
+  <li><b>Feature Importance</b>: 트리 계열의 기본 importance + Permutation Importance</li>
+  <li><b>SHAP Values</b>: 개별 예측에 대한 변수 기여도 (글로벌 + 로컬)</li>
+  <li><b>Partial Dependence Plot</b>: 특정 변수가 예측에 미치는 비선형 효과</li>
+  <li><b>로지스틱 회귀 계수</b>: odds ratio 해석 → 비즈니스 보고용</li>
+</ul>
+
+<h4>7-3. 학습/검증 곡선 점검</h4>
+<ul>
+  <li>Learning curve — 데이터 추가 시 성능 향상 여지 확인</li>
+  <li>Train vs Test 성능 차이 — 과적합 여부 점검</li>
+</ul>
+</div>
+
+<!-- ============== STAGE 8 ============== -->
+<div class="stage" id="s8">
+<h3 class="stage-title">
+  <span class="badge badge-todo">예정</span>
+  STAGE 8. 결과 리포팅 & 배포 준비
+  <span class="badge badge-week">Week 8</span>
+</h3>
+<table>
+<tr><th width="22%">하위 업무</th><th>세부 내용</th></tr>
+<tr><td>8-1. 비즈니스 리포트</td><td>핵심 지표 + 인사이트 + 비용/매출 시뮬레이션 (수락자 1명당 매출 가정)</td></tr>
+<tr><td>8-2. 타겟 고객 리스트</td><td>예측확률 상위 N% 고객 추출 → 캠페인 운영팀에 전달</td></tr>
+<tr><td>8-3. 모델 직렬화</td><td><code>joblib.dump</code>로 모델 + scaler + 변수 리스트 저장</td></tr>
+<tr><td>8-4. 추론 파이프라인</td><td>전처리·예측 함수 작성 — 새 데이터에 동일하게 적용</td></tr>
+<tr><td>8-5. 모니터링 계획</td><td>데이터 드리프트 탐지, 주기적 재학습 스케줄 정의</td></tr>
+<tr><td>8-6. 발표 자료</td><td>경영진용 1장 요약 + 분석팀용 상세 발표 슬라이드</td></tr>
+</table>
+</div>
+
+<h2>📂 산출물 디렉토리 구조</h2>
+<pre style="background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; font-size:13px; overflow-x:auto;">
+8weeks/
+├── marketing_campaign.csv               # 원본 데이터
+├── EDA_리포트.html                      # ✅ STAGE 1 완료
+├── eda_dashboard.png                    # ✅
+├── eda_corr_heatmap.png                 # ✅
+├── 모델링_워크플로우.html               # ✅ 본 문서
+├── preprocess.py                        # ✅ STAGE 2 완료
+└── preprocessed/                        # ✅
+    ├── X_train.csv  / X_test.csv        # 원본 스케일 (트리 계열용)
+    ├── X_train_scaled.csv / X_test_scaled.csv  # 스케일링 버전 (선형/거리기반용)
+    ├── y_train.csv  / y_test.csv
+    └── marketing_preprocessed.csv       # 전처리 통합본
+</pre>
+
+<h2>🎯 다음 단계 제안</h2>
+<div class="summary-box">
+<b>당장 시작할 수 있는 작업 (STAGE 3 + STAGE 5 베이스라인)</b><br>
+1. Logistic Regression / RandomForest / XGBoost 3개 모델로 <b>Baseline</b> 학습 후 5-fold CV 성능 비교<br>
+2. RandomForest의 feature_importance + Lasso 결과로 변수 중요도 비교<br>
+3. <code>class_weight='balanced'</code>를 가장 먼저 적용하여 불균형 효과 체감<br>
+→ 원하시면 바로 STAGE 5 베이스라인 모델링 진행해드립니다.
+</div>
+
+<p style="margin-top:40px; color:#64748b; font-size:13px; text-align:center; border-top:1px solid #e5e7eb; padding-top:14px">
+Last updated: 2026-04-25 · Marketing Campaign Classification Project
+</p>
+
+</body>
+</html>
